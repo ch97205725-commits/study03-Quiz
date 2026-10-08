@@ -111,6 +111,8 @@ const state = {
   score: 0,
   answered: false,
   results: [],
+  isRetry: false,
+  firstScore: null,
   usedHint: false,
   timeLeft: SPEED_SECONDS,
   timerId: null
@@ -143,9 +145,12 @@ function showModeSelect(category) {
   showScreen("mode");
 }
 
-function startGame(category, mode, sourceQuestions) {
+// isRetry가 true면 틀린 문제 다시 풀기 판이다. 처음 점수(firstScore)는 건드리지 않는다.
+function startGame(category, mode, sourceQuestions, isRetry = false) {
   state.category = category;
   state.mode = mode;
+  state.isRetry = isRetry;
+  if (!isRetry) state.firstScore = null;
   state.questions = shuffle(sourceQuestions).map(prepareQuestion);
   state.index = 0;
   state.score = 0;
@@ -188,7 +193,7 @@ function startTimer() {
 
 function renderMeta() {
   $("meta-category").textContent = state.category;
-  $("meta-mode").textContent = modeLabel(state.mode) + " 모드";
+  $("meta-mode").textContent = modeLabel(state.mode) + " 모드" + (state.isRetry ? " · 다시 풀기" : "");
   $("meta-progress").textContent = (state.index + 1) + "/" + state.questions.length;
   $("meta-score").textContent = "점수 " + state.score;
 }
@@ -286,13 +291,31 @@ function nextQuestion() {
     state.index += 1;
     renderQuestion();
   } else {
+    if (!state.isRetry) state.firstScore = state.score;
     renderResult();
     showScreen("result");
   }
 }
 
+// 직전 판에서 틀린 문항만 원본 QUESTIONS에서 다시 가져와 섞어서 낸다.
+function startRetry() {
+  const wrongIds = state.results.filter((result) => !result.correct).map((result) => result.id);
+  if (wrongIds.length === 0) return;
+  const wrongQuestions = QUESTIONS.filter((q) => wrongIds.includes(q.id));
+  startGame(state.category, "practice", wrongQuestions, true);
+}
+
 function renderResult() {
-  $("result-score").textContent = formatScore(state.score);
+  const firstScoreEl = $("result-first-score");
+  if (state.isRetry) {
+    const correctCount = state.results.filter((result) => result.correct).length;
+    $("result-score").textContent = state.results.length + "문항 중 " + correctCount + "개 맞힘";
+    firstScoreEl.textContent = "처음 점수 " + formatScore(state.firstScore);
+    firstScoreEl.hidden = false;
+  } else {
+    $("result-score").textContent = formatScore(state.score);
+    firstScoreEl.hidden = true;
+  }
   $("result-notice").textContent = state.mode === "practice" ? "연습 모드는 " + NOT_RECORDED_TEXT : "";
   $("result-notice").hidden = state.mode !== "practice";
 
@@ -306,6 +329,9 @@ function renderResult() {
     item.append(mark, " " + result.question);
     summary.appendChild(item);
   });
+
+  const hasWrong = state.results.some((result) => !result.correct);
+  $("retry-btn").hidden = !(state.mode === "practice" && hasWrong);
 }
 
 // ─────────────────────────────────────────────────────
@@ -340,6 +366,7 @@ function init() {
   $("next-btn").addEventListener("click", nextQuestion);
   $("hint-btn").addEventListener("click", useHint);
   $("quiz-home-btn").addEventListener("click", () => showScreen("start"));
+  $("retry-btn").addEventListener("click", startRetry);
   $("result-home-btn").addEventListener("click", () => showScreen("start"));
 }
 
