@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>상식 퀴즈</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="student-bar">학번 2601990 이름 최현지</div>
+
+  <main class="app">
+    <!-- 시작 화면 -->
+    <section id="screen-start" class="screen">
+      <h1 class="app-title">4지선다 상식 퀴즈</h1>
+      <p class="lead">카테고리를 하나 고르면 10문항이 나옵니다.</p>
+      <p id="start-notice" class="notice">카테고리를 고르면 바로 연습 모드가 시작됩니다. 연습 모드는 순위표에 기록되지 않음</p>
+      <p id="data-error" class="error" hidden>문항 데이터를 불러오지 못함</p>
+      <div id="category-buttons" class="category-grid">
+        <button type="button" class="category-btn" data-category="한국사">한국사</button>
+        <button type="button" class="category-btn" data-category="세계지리">세계지리</button>
+        <button type="button" class="category-btn" data-category="과학">과학</button>
+        <button type="button" class="category-btn" data-category="예술과 문화">예술과 문화</button>
+      </div>
+    </section>
+
+    <!-- 문제 화면 -->
+    <section id="screen-quiz" class="screen" hidden>
+      <div id="quiz-meta" class="quiz-meta">
+        <span id="meta-category"></span>
+        <span id="meta-mode"></span>
+        <span id="meta-progress"></span>
+        <span id="meta-score"></span>
+      </div>
+      <h2 id="quiz-question" class="quiz-question"></h2>
+      <div id="choices" class="choices"></div>
+      <p id="feedback" class="feedback" aria-live="polite"></p>
+      <div id="explanation" class="explanation" hidden>
+        <p id="explanation-text"></p>
+        <p class="source">출처: <a id="source-link" target="_blank" rel="noopener"></a></p>
+      </div>
+      <div class="quiz-actions">
+        <button type="button" id="next-btn" class="primary-btn" hidden>다음</button>
+        <button type="button" id="quiz-home-btn" class="secondary-btn">처음으로</button>
+      </div>
+    </section>
+
+    <!-- 결과 화면 -->
+    <section id="screen-result" class="screen" hidden>
+      <h2>결과</h2>
+      <p id="result-score" class="result-score"></p>
+      <p id="result-notice" class="notice"></p>
+      <ol id="result-summary" class="result-summary"></ol>
+      <div class="result-actions">
+        <button type="button" id="result-home-btn" class="primary-btn">처음으로</button>
+      </div>
+    </section>
+  </main>
+
+  <script src="questions.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>

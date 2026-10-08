@@ -88,3 +88,175 @@ function validateQuestions(questions = QUESTIONS) {
   console.log("[문항 점검] " + questions.length + "문항, 오류 " + errors.length + "개");
   return { ok: errors.length === 0, errors: errors };
 }
+
+// ─────────────────────────────────────────────────────
+// 상태
+// ─────────────────────────────────────────────────────
+const MODE_LABELS = { practice: "연습", speed: "스피드", hint: "힌트" };
+const NOT_RECORDED_TEXT = "순위표에 기록되지 않음";
+
+const state = {
+  category: null,
+  mode: "practice",
+  questions: [],
+  index: 0,
+  score: 0,
+  answered: false,
+  results: []
+};
+
+// ─────────────────────────────────────────────────────
+// 화면 전환과 렌더링
+// ─────────────────────────────────────────────────────
+const SCREENS = ["start", "quiz", "result"];
+
+function $(id) {
+  return document.getElementById(id);
+}
+
+function showScreen(name) {
+  SCREENS.forEach((screen) => {
+    $("screen-" + screen).hidden = screen !== name;
+  });
+  window.scrollTo(0, 0);
+}
+
+function startGame(category, mode, sourceQuestions) {
+  state.category = category;
+  state.mode = mode;
+  state.questions = shuffle(sourceQuestions).map(prepareQuestion);
+  state.index = 0;
+  state.score = 0;
+  state.answered = false;
+  state.results = [];
+  showScreen("quiz");
+  renderQuestion();
+}
+
+function renderMeta() {
+  $("meta-category").textContent = state.category;
+  $("meta-mode").textContent = MODE_LABELS[state.mode] + " 모드";
+  $("meta-progress").textContent = (state.index + 1) + "/" + state.questions.length;
+  $("meta-score").textContent = "점수 " + state.score;
+}
+
+function renderQuestion() {
+  const q = state.questions[state.index];
+  state.answered = false;
+
+  renderMeta();
+  $("quiz-question").textContent = q.question;
+
+  const choicesEl = $("choices");
+  choicesEl.replaceChildren();
+  q.choices.forEach((choice, i) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "choice-btn";
+    button.textContent = choice;
+    button.addEventListener("click", () => handleAnswer(i));
+    choicesEl.appendChild(button);
+  });
+
+  const feedback = $("feedback");
+  feedback.textContent = "";
+  feedback.className = "feedback";
+  $("explanation").hidden = true;
+  $("next-btn").hidden = true;
+}
+
+// choiceIndex: 고른 보기(0~3). -1은 고른 보기 없이 끝난 경우(2단계 시간 초과).
+function handleAnswer(choiceIndex) {
+  if (state.answered) return;
+  state.answered = true;
+
+  const q = state.questions[state.index];
+  const isCorrect = choiceIndex === q.answerIndex;
+  const points = scoreFor(state.mode, isCorrect, false);
+
+  const buttons = $("choices").querySelectorAll(".choice-btn");
+  buttons.forEach((button) => {
+    button.disabled = true;
+  });
+  buttons[q.answerIndex].classList.add("correct");
+  if (!isCorrect && choiceIndex >= 0) buttons[choiceIndex].classList.add("wrong");
+
+  const feedback = $("feedback");
+  feedback.textContent = isCorrect ? "정답!" : "오답";
+  feedback.className = "feedback " + (isCorrect ? "is-correct" : "is-wrong");
+
+  $("explanation-text").textContent = q.explanation;
+  const link = $("source-link");
+  link.textContent = q.source.name;
+  link.href = q.source.url;
+  $("explanation").hidden = false;
+
+  state.score += points;
+  state.results.push({ id: q.id, question: q.question, correct: isCorrect, points: points });
+  renderMeta();
+
+  const nextBtn = $("next-btn");
+  nextBtn.textContent = state.index === state.questions.length - 1 ? "결과 보기" : "다음";
+  nextBtn.hidden = false;
+}
+
+function nextQuestion() {
+  if (!state.answered) return;
+  if (state.index < state.questions.length - 1) {
+    state.index += 1;
+    renderQuestion();
+  } else {
+    renderResult();
+    showScreen("result");
+  }
+}
+
+function renderResult() {
+  $("result-score").textContent = formatScore(state.score);
+  $("result-notice").textContent = state.mode === "practice" ? "연습 모드는 " + NOT_RECORDED_TEXT : "";
+  $("result-notice").hidden = state.mode !== "practice";
+
+  const summary = $("result-summary");
+  summary.replaceChildren();
+  state.results.forEach((result) => {
+    const item = document.createElement("li");
+    const mark = document.createElement("span");
+    mark.className = result.correct ? "mark-correct" : "mark-wrong";
+    mark.textContent = result.correct ? "○ 맞힘" : "× 틀림";
+    item.append(mark, " " + result.question);
+    summary.appendChild(item);
+  });
+}
+
+// ─────────────────────────────────────────────────────
+// 시작
+// ─────────────────────────────────────────────────────
+function hasQuestionData() {
+  return typeof QUESTIONS !== "undefined" && Array.isArray(QUESTIONS) && QUESTIONS.length > 0;
+}
+
+function init() {
+  const categoryButtons = $("category-buttons").querySelectorAll(".category-btn");
+
+  if (!hasQuestionData()) {
+    $("data-error").hidden = false;
+    categoryButtons.forEach((button) => {
+      button.disabled = true;
+    });
+    return;
+  }
+
+  validateQuestions();
+
+  categoryButtons.forEach((button) => {
+    button.addEventListener("click", () => {
+      const category = button.dataset.category;
+      startGame(category, "practice", getQuestionsByCategory(category));
+    });
+  });
+  $("next-btn").addEventListener("click", nextQuestion);
+  $("quiz-home-btn").addEventListener("click", () => showScreen("start"));
+  $("result-home-btn").addEventListener("click", () => showScreen("start"));
+}
+
+init();
