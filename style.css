@@ -107,6 +107,44 @@ button:disabled {
   opacity: 0.45;
 }
 
+.mode-title {
+  margin: 0 0 16px;
+  font-size: 1.3rem;
+}
+
+.mode-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mode-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.mode-card:hover {
+  border-color: var(--accent);
+}
+
+.mode-name {
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+.mode-desc {
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
 .quiz-meta {
   display: flex;
   flex-wrap: wrap;
@@ -192,7 +230,8 @@ button:disabled {
 }
 
 .quiz-actions,
-.result-actions {
+.result-actions,
+.mode-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;

@@ -13,14 +13,36 @@
     <!-- 시작 화면 -->
     <section id="screen-start" class="screen">
       <h1 class="app-title">4지선다 상식 퀴즈</h1>
-      <p class="lead">카테고리를 하나 고르면 10문항이 나옵니다.</p>
-      <p id="start-notice" class="notice">카테고리를 고르면 바로 연습 모드가 시작됩니다. 연습 모드는 순위표에 기록되지 않음</p>
+      <p class="lead">카테고리를 고른 뒤 모드(연습·스피드·힌트)를 선택하면 10문항이 나옵니다.</p>
+      <p id="start-notice" class="notice">연습 모드는 순위표에 기록되지 않음</p>
       <p id="data-error" class="error" hidden>문항 데이터를 불러오지 못함</p>
       <div id="category-buttons" class="category-grid">
         <button type="button" class="category-btn" data-category="한국사">한국사</button>
         <button type="button" class="category-btn" data-category="세계지리">세계지리</button>
         <button type="button" class="category-btn" data-category="과학">과학</button>
         <button type="button" class="category-btn" data-category="예술과 문화">예술과 문화</button>
+      </div>
+    </section>
+
+    <!-- 모드 선택 화면 -->
+    <section id="screen-mode" class="screen" hidden>
+      <h2 class="mode-title"><span id="mode-category"></span> · 모드 선택</h2>
+      <div class="mode-cards">
+        <button type="button" class="mode-card" data-mode="practice">
+          <span class="mode-name">연습</span>
+          <span class="mode-desc">시간 제한·힌트 없이 풀기 · 순위표에 기록되지 않음</span>
+        </button>
+        <button type="button" class="mode-card" data-mode="speed">
+          <span class="mode-name">스피드</span>
+          <span class="mode-desc">문항마다 15초</span>
+        </button>
+        <button type="button" class="mode-card" data-mode="hint">
+          <span class="mode-name">힌트</span>
+          <span class="mode-desc">문항마다 힌트 1번, 힌트 쓰고 맞히면 0.5점</span>
+        </button>
+      </div>
+      <div class="mode-actions">
+        <button type="button" id="mode-back-btn" class="secondary-btn">뒤로</button>
       </div>
     </section>
 

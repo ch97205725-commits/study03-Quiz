@@ -108,7 +108,7 @@ const state = {
 // ─────────────────────────────────────────────────────
 // 화면 전환과 렌더링
 // ─────────────────────────────────────────────────────
-const SCREENS = ["start", "quiz", "result"];
+const SCREENS = ["start", "mode", "quiz", "result"];
 
 function $(id) {
   return document.getElementById(id);
@@ -119,6 +119,16 @@ function showScreen(name) {
     $("screen-" + screen).hidden = screen !== name;
   });
   window.scrollTo(0, 0);
+}
+
+function modeLabel(mode) {
+  return MODE_LABELS[mode];
+}
+
+function showModeSelect(category) {
+  state.category = category;
+  $("mode-category").textContent = category;
+  showScreen("mode");
 }
 
 function startGame(category, mode, sourceQuestions) {
@@ -135,7 +145,7 @@ function startGame(category, mode, sourceQuestions) {
 
 function renderMeta() {
   $("meta-category").textContent = state.category;
-  $("meta-mode").textContent = MODE_LABELS[state.mode] + " 모드";
+  $("meta-mode").textContent = modeLabel(state.mode) + " 모드";
   $("meta-progress").textContent = (state.index + 1) + "/" + state.questions.length;
   $("meta-score").textContent = "점수 " + state.score;
 }
@@ -249,11 +259,14 @@ function init() {
   validateQuestions();
 
   categoryButtons.forEach((button) => {
-    button.addEventListener("click", () => {
-      const category = button.dataset.category;
-      startGame(category, "practice", getQuestionsByCategory(category));
+    button.addEventListener("click", () => showModeSelect(button.dataset.category));
+  });
+  $("screen-mode").querySelectorAll(".mode-card").forEach((card) => {
+    card.addEventListener("click", () => {
+      startGame(state.category, card.dataset.mode, getQuestionsByCategory(state.category));
     });
   });
+  $("mode-back-btn").addEventListener("click", () => showScreen("start"));
   $("next-btn").addEventListener("click", nextQuestion);
   $("quiz-home-btn").addEventListener("click", () => showScreen("start"));
   $("result-home-btn").addEventListener("click", () => showScreen("start"));
