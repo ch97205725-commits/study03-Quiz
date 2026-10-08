@@ -47,6 +47,12 @@ function scoreFor(mode, isCorrect, usedHint) {
   return 1;
 }
 
+// 힌트로 지울 보기: 정답이 아닌 인덱스 3개 중 무작위 2개.
+function pickHintRemovals(answerIndex) {
+  const wrongIndexes = [0, 1, 2, 3].filter((i) => i !== answerIndex);
+  return shuffle(wrongIndexes).slice(0, 2);
+}
+
 function formatScore(score) {
   return score + " / " + MAX_SCORE + "점";
 }
@@ -92,6 +98,8 @@ function validateQuestions(questions = QUESTIONS) {
 // ─────────────────────────────────────────────────────
 // 상태
 // ─────────────────────────────────────────────────────
+const SPEED_SECONDS = 15;
+const URGENT_SECONDS = 5;
 const MODE_LABELS = { practice: "연습", speed: "스피드", hint: "힌트" };
 const NOT_RECORDED_TEXT = "순위표에 기록되지 않음";
 
@@ -102,28 +110,47 @@ const state = {
   index: 0,
   score: 0,
   answered: false,
-  results: []
+  results: [],
+  isRetry: false,
+  firstScore: null,
+  usedHint: false,
+  timeLeft: SPEED_SECONDS,
+  timerId: null
 };
 
 // ─────────────────────────────────────────────────────
 // 화면 전환과 렌더링
 // ─────────────────────────────────────────────────────
-const SCREENS = ["start", "quiz", "result"];
+const SCREENS = ["start", "mode", "quiz", "result"];
 
 function $(id) {
   return document.getElementById(id);
 }
 
 function showScreen(name) {
+  stopTimer();
   SCREENS.forEach((screen) => {
     $("screen-" + screen).hidden = screen !== name;
   });
   window.scrollTo(0, 0);
 }
 
-function startGame(category, mode, sourceQuestions) {
+function modeLabel(mode) {
+  return MODE_LABELS[mode];
+}
+
+function showModeSelect(category) {
+  state.category = category;
+  $("mode-category").textContent = category;
+  showScreen("mode");
+}
+
+// isRetry가 true면 틀린 문제 다시 풀기 판이다. 처음 점수(firstScore)는 건드리지 않는다.
+function startGame(category, mode, sourceQuestions, isRetry = false) {
   state.category = category;
   state.mode = mode;
+  state.isRetry = isRetry;
+  if (!isRetry) state.firstScore = null;
   state.questions = shuffle(sourceQuestions).map(prepareQuestion);
   state.index = 0;
   state.score = 0;
@@ -133,9 +160,40 @@ function startGame(category, mode, sourceQuestions) {
   renderQuestion();
 }
 
+// ─────────────────────────────────────────────────────
+// 스피드 모드 타이머
+// ─────────────────────────────────────────────────────
+function stopTimer() {
+  if (state.timerId !== null) {
+    clearInterval(state.timerId);
+    state.timerId = null;
+  }
+}
+
+function renderTimer() {
+  const timer = $("timer");
+  timer.textContent = "남은 시간 " + state.timeLeft + "초";
+  timer.classList.toggle("urgent", state.timeLeft <= URGENT_SECONDS);
+}
+
+function startTimer() {
+  stopTimer();
+  state.timeLeft = SPEED_SECONDS;
+  renderTimer();
+  state.timerId = setInterval(() => {
+    if (state.answered) {
+      stopTimer();
+      return;
+    }
+    state.timeLeft -= 1;
+    renderTimer();
+    if (state.timeLeft <= 0) handleAnswer(-1);
+  }, 1000);
+}
+
 function renderMeta() {
   $("meta-category").textContent = state.category;
-  $("meta-mode").textContent = MODE_LABELS[state.mode] + " 모드";
+  $("meta-mode").textContent = modeLabel(state.mode) + " 모드" + (state.isRetry ? " · 다시 풀기" : "");
   $("meta-progress").textContent = (state.index + 1) + "/" + state.questions.length;
   $("meta-score").textContent = "점수 " + state.score;
 }
@@ -143,6 +201,7 @@ function renderMeta() {
 function renderQuestion() {
   const q = state.questions[state.index];
   state.answered = false;
+  state.usedHint = false;
 
   renderMeta();
   $("quiz-question").textContent = q.question;
@@ -163,16 +222,41 @@ function renderQuestion() {
   feedback.className = "feedback";
   $("explanation").hidden = true;
   $("next-btn").hidden = true;
+
+  const hintBtn = $("hint-btn");
+  hintBtn.hidden = state.mode !== "hint";
+  hintBtn.disabled = state.mode !== "hint";
+
+  $("timer").hidden = state.mode !== "speed";
+  if (state.mode === "speed") {
+    startTimer();
+  } else {
+    stopTimer();
+  }
+}
+
+function useHint() {
+  if (state.answered || state.usedHint) return;
+  state.usedHint = true;
+
+  const q = state.questions[state.index];
+  const buttons = $("choices").querySelectorAll(".choice-btn");
+  pickHintRemovals(q.answerIndex).forEach((i) => {
+    buttons[i].classList.add("removed");
+  });
+  $("hint-btn").disabled = true;
 }
 
 // choiceIndex: 고른 보기(0~3). -1은 고른 보기 없이 끝난 경우(2단계 시간 초과).
 function handleAnswer(choiceIndex) {
   if (state.answered) return;
   state.answered = true;
+  stopTimer();
 
   const q = state.questions[state.index];
   const isCorrect = choiceIndex === q.answerIndex;
-  const points = scoreFor(state.mode, isCorrect, false);
+  const points = scoreFor(state.mode, isCorrect, state.usedHint);
+  $("hint-btn").disabled = true;
 
   const buttons = $("choices").querySelectorAll(".choice-btn");
   buttons.forEach((button) => {
@@ -182,7 +266,8 @@ function handleAnswer(choiceIndex) {
   if (!isCorrect && choiceIndex >= 0) buttons[choiceIndex].classList.add("wrong");
 
   const feedback = $("feedback");
-  feedback.textContent = isCorrect ? "정답!" : "오답";
+  const timedOut = choiceIndex === -1;
+  feedback.textContent = isCorrect ? "정답!" : timedOut ? "시간 초과" : "오답";
   feedback.className = "feedback " + (isCorrect ? "is-correct" : "is-wrong");
 
   $("explanation-text").textContent = q.explanation;
@@ -206,13 +291,31 @@ function nextQuestion() {
     state.index += 1;
     renderQuestion();
   } else {
+    if (!state.isRetry) state.firstScore = state.score;
     renderResult();
     showScreen("result");
   }
 }
 
+// 직전 판에서 틀린 문항만 원본 QUESTIONS에서 다시 가져와 섞어서 낸다.
+function startRetry() {
+  const wrongIds = state.results.filter((result) => !result.correct).map((result) => result.id);
+  if (wrongIds.length === 0) return;
+  const wrongQuestions = QUESTIONS.filter((q) => wrongIds.includes(q.id));
+  startGame(state.category, "practice", wrongQuestions, true);
+}
+
 function renderResult() {
-  $("result-score").textContent = formatScore(state.score);
+  const firstScoreEl = $("result-first-score");
+  if (state.isRetry) {
+    const correctCount = state.results.filter((result) => result.correct).length;
+    $("result-score").textContent = state.results.length + "문항 중 " + correctCount + "개 맞힘";
+    firstScoreEl.textContent = "처음 점수 " + formatScore(state.firstScore);
+    firstScoreEl.hidden = false;
+  } else {
+    $("result-score").textContent = formatScore(state.score);
+    firstScoreEl.hidden = true;
+  }
   $("result-notice").textContent = state.mode === "practice" ? "연습 모드는 " + NOT_RECORDED_TEXT : "";
   $("result-notice").hidden = state.mode !== "practice";
 
@@ -226,6 +329,9 @@ function renderResult() {
     item.append(mark, " " + result.question);
     summary.appendChild(item);
   });
+
+  const hasWrong = state.results.some((result) => !result.correct);
+  $("retry-btn").hidden = !(state.mode === "practice" && hasWrong);
 }
 
 // ─────────────────────────────────────────────────────
@@ -249,13 +355,18 @@ function init() {
   validateQuestions();
 
   categoryButtons.forEach((button) => {
-    button.addEventListener("click", () => {
-      const category = button.dataset.category;
-      startGame(category, "practice", getQuestionsByCategory(category));
+    button.addEventListener("click", () => showModeSelect(button.dataset.category));
+  });
+  $("screen-mode").querySelectorAll(".mode-card").forEach((card) => {
+    card.addEventListener("click", () => {
+      startGame(state.category, card.dataset.mode, getQuestionsByCategory(state.category));
     });
   });
+  $("mode-back-btn").addEventListener("click", () => showScreen("start"));
   $("next-btn").addEventListener("click", nextQuestion);
+  $("hint-btn").addEventListener("click", useHint);
   $("quiz-home-btn").addEventListener("click", () => showScreen("start"));
+  $("retry-btn").addEventListener("click", startRetry);
   $("result-home-btn").addEventListener("click", () => showScreen("start"));
 }
 
