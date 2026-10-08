@@ -206,6 +206,18 @@ button:disabled {
   font-weight: 700;
 }
 
+.choice-btn.removed {
+  display: none;
+}
+
+.hint-btn {
+  margin-top: 12px;
+}
+
+.hint-btn:disabled {
+  opacity: 0.45;
+}
+
 .feedback {
   min-height: 1.5em;
   margin: 16px 0 8px;

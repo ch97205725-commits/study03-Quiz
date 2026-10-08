@@ -47,6 +47,12 @@ function scoreFor(mode, isCorrect, usedHint) {
   return 1;
 }
 
+// 힌트로 지울 보기: 정답이 아닌 인덱스 3개 중 무작위 2개.
+function pickHintRemovals(answerIndex) {
+  const wrongIndexes = [0, 1, 2, 3].filter((i) => i !== answerIndex);
+  return shuffle(wrongIndexes).slice(0, 2);
+}
+
 function formatScore(score) {
   return score + " / " + MAX_SCORE + "점";
 }
@@ -105,6 +111,7 @@ const state = {
   score: 0,
   answered: false,
   results: [],
+  usedHint: false,
   timeLeft: SPEED_SECONDS,
   timerId: null
 };
@@ -189,6 +196,7 @@ function renderMeta() {
 function renderQuestion() {
   const q = state.questions[state.index];
   state.answered = false;
+  state.usedHint = false;
 
   renderMeta();
   $("quiz-question").textContent = q.question;
@@ -210,12 +218,28 @@ function renderQuestion() {
   $("explanation").hidden = true;
   $("next-btn").hidden = true;
 
+  const hintBtn = $("hint-btn");
+  hintBtn.hidden = state.mode !== "hint";
+  hintBtn.disabled = state.mode !== "hint";
+
   $("timer").hidden = state.mode !== "speed";
   if (state.mode === "speed") {
     startTimer();
   } else {
     stopTimer();
   }
+}
+
+function useHint() {
+  if (state.answered || state.usedHint) return;
+  state.usedHint = true;
+
+  const q = state.questions[state.index];
+  const buttons = $("choices").querySelectorAll(".choice-btn");
+  pickHintRemovals(q.answerIndex).forEach((i) => {
+    buttons[i].classList.add("removed");
+  });
+  $("hint-btn").disabled = true;
 }
 
 // choiceIndex: 고른 보기(0~3). -1은 고른 보기 없이 끝난 경우(2단계 시간 초과).
@@ -226,7 +250,8 @@ function handleAnswer(choiceIndex) {
 
   const q = state.questions[state.index];
   const isCorrect = choiceIndex === q.answerIndex;
-  const points = scoreFor(state.mode, isCorrect, false);
+  const points = scoreFor(state.mode, isCorrect, state.usedHint);
+  $("hint-btn").disabled = true;
 
   const buttons = $("choices").querySelectorAll(".choice-btn");
   buttons.forEach((button) => {
@@ -313,6 +338,7 @@ function init() {
   });
   $("mode-back-btn").addEventListener("click", () => showScreen("start"));
   $("next-btn").addEventListener("click", nextQuestion);
+  $("hint-btn").addEventListener("click", useHint);
   $("quiz-home-btn").addEventListener("click", () => showScreen("start"));
   $("result-home-btn").addEventListener("click", () => showScreen("start"));
 }
