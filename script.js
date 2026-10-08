@@ -92,6 +92,8 @@ function validateQuestions(questions = QUESTIONS) {
 // ─────────────────────────────────────────────────────
 // 상태
 // ─────────────────────────────────────────────────────
+const SPEED_SECONDS = 15;
+const URGENT_SECONDS = 5;
 const MODE_LABELS = { practice: "연습", speed: "스피드", hint: "힌트" };
 const NOT_RECORDED_TEXT = "순위표에 기록되지 않음";
 
@@ -102,7 +104,9 @@ const state = {
   index: 0,
   score: 0,
   answered: false,
-  results: []
+  results: [],
+  timeLeft: SPEED_SECONDS,
+  timerId: null
 };
 
 // ─────────────────────────────────────────────────────
@@ -115,6 +119,7 @@ function $(id) {
 }
 
 function showScreen(name) {
+  stopTimer();
   SCREENS.forEach((screen) => {
     $("screen-" + screen).hidden = screen !== name;
   });
@@ -141,6 +146,37 @@ function startGame(category, mode, sourceQuestions) {
   state.results = [];
   showScreen("quiz");
   renderQuestion();
+}
+
+// ─────────────────────────────────────────────────────
+// 스피드 모드 타이머
+// ─────────────────────────────────────────────────────
+function stopTimer() {
+  if (state.timerId !== null) {
+    clearInterval(state.timerId);
+    state.timerId = null;
+  }
+}
+
+function renderTimer() {
+  const timer = $("timer");
+  timer.textContent = "남은 시간 " + state.timeLeft + "초";
+  timer.classList.toggle("urgent", state.timeLeft <= URGENT_SECONDS);
+}
+
+function startTimer() {
+  stopTimer();
+  state.timeLeft = SPEED_SECONDS;
+  renderTimer();
+  state.timerId = setInterval(() => {
+    if (state.answered) {
+      stopTimer();
+      return;
+    }
+    state.timeLeft -= 1;
+    renderTimer();
+    if (state.timeLeft <= 0) handleAnswer(-1);
+  }, 1000);
 }
 
 function renderMeta() {
@@ -173,12 +209,20 @@ function renderQuestion() {
   feedback.className = "feedback";
   $("explanation").hidden = true;
   $("next-btn").hidden = true;
+
+  $("timer").hidden = state.mode !== "speed";
+  if (state.mode === "speed") {
+    startTimer();
+  } else {
+    stopTimer();
+  }
 }
 
 // choiceIndex: 고른 보기(0~3). -1은 고른 보기 없이 끝난 경우(2단계 시간 초과).
 function handleAnswer(choiceIndex) {
   if (state.answered) return;
   state.answered = true;
+  stopTimer();
 
   const q = state.questions[state.index];
   const isCorrect = choiceIndex === q.answerIndex;
@@ -192,7 +236,8 @@ function handleAnswer(choiceIndex) {
   if (!isCorrect && choiceIndex >= 0) buttons[choiceIndex].classList.add("wrong");
 
   const feedback = $("feedback");
-  feedback.textContent = isCorrect ? "정답!" : "오답";
+  const timedOut = choiceIndex === -1;
+  feedback.textContent = isCorrect ? "정답!" : timedOut ? "시간 초과" : "오답";
   feedback.className = "feedback " + (isCorrect ? "is-correct" : "is-wrong");
 
   $("explanation-text").textContent = q.explanation;
